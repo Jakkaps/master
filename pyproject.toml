@@ -9,7 +9,13 @@ readme = "README.md"
 python = "^3.10"
 torch = "^2.2.2"
 torch-geometric = "^2.5.2"
+transformers = "^4.39.3"
+pandas = "^2.2.1"
+sentence-transformers = "^2.6.1"
 
+
+[tool.poetry.group.dev.dependencies]
+ipykernel = "^6.29.4"
 
 [build-system]
 requires = ["poetry-core"]
