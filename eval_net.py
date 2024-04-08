@@ -101,12 +101,15 @@ class EvalNet(nn.Module):
 
     def forward(self, batch):
         x, edge_index, edge_type = batch.x, batch.edge_index, batch.edge_attr
+
+        # Flatten the dialog graph
         x = (
             [utt for sublist in batch.x for utt in sublist]
             if len(batch.x) > 1
             else batch.x[0]
         )
 
+        # Embed dialog utterances
         x = self.embed(x)
 
         # Construct edge weights
