@@ -13,6 +13,8 @@ transformers = "^4.39.3"
 pandas = "^2.2.1"
 sentence-transformers = "^2.6.1"
 tqdm = "^4.66.2"
+matplotlib = "^3.8.4"
+scikit-learn = "^1.4.2"
 
 
 [tool.poetry.group.dev.dependencies]
