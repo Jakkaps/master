@@ -6,6 +6,8 @@ from torch import Tensor
 from torch_geometric.loader import DataLoader
 from torch_geometric.nn import MessagePassing
 from torch_geometric.utils import remove_self_loops
+from peft import LoraConfig, TaskType, get_peft_model
+from transformers import AutoModel, AutoTokenizer
 
 from chat_dataset import ChatDataset
 
@@ -76,10 +78,26 @@ class UtteranceEmbedding(nn.Module):
 
     def __init__(self):
         super(UtteranceEmbedding, self).__init__()
-        self.st = SentenceTransformer("paraphrase-MiniLM-L6-v2")
+
+        peft_config = LoraConfig(
+            task_type=TaskType.FEATURE_EXTRACTION,
+            inference_mode=False,
+            r=8,
+            lora_alpha=32,
+            lora_dropout=0.1,
+            target_modules=["query", "key", "value"],
+        )
+        # self.tokenizer = AutoTokenizer.from_pretrained("sentence-transformers/paraphrase-MiniLM-L6-v2")
+        # model = AutoModel.from_pretrained(
+        #     "sentence-transformers/paraphrase-MiniLM-L6-v2"
+        # )
+        model = SentenceTransformer("paraphrase-MiniLM-L6-v2")
+        self.model = get_peft_model(model, peft_config)
 
     def forward(self, x):
-        return self.st.encode(x, convert_to_tensor=True, batch_size=len(x))
+        # inputs = self.tokenizer(x, return_tensors="pt", padding=True, truncation=True)
+        # return self.model(**inputs)
+        return self.model.encode(x, convert_to_tensor=True, batch_size=len(x))
 
 
 class EvalNet(nn.Module):
@@ -126,6 +144,11 @@ class EvalNet(nn.Module):
         # Compute the final score from dialog embedding
         return self.lin(x)
 
+def print_model_parameters(model):
+    total_params = sum(p.numel() for p in model.parameters())
+    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    print(f"Total Parameters: {total_params:,}")
+    print(f"Trainable Parameters: {trainable_params:,}")
 
 if __name__ == "__main__":
     device = torch.device(
@@ -136,6 +159,9 @@ if __name__ == "__main__":
 
     eval_net = EvalNet()
     eval_net.to(device)
+   
+    print_model_parameters(eval_net)
+    print_model_parameters(eval_net.embed.model)
 
     chat_dataset = ChatDataset(root="data", dataset="gogi_chats")
     loader = DataLoader(chat_dataset, batch_size=1)
