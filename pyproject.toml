@@ -12,6 +12,7 @@ torch-geometric = "^2.5.2"
 transformers = "^4.39.3"
 pandas = "^2.2.1"
 sentence-transformers = "^2.6.1"
+tqdm = "^4.66.2"
 
 
 [tool.poetry.group.dev.dependencies]
