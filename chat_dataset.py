@@ -20,15 +20,21 @@ class ChatDataset(InMemoryDataset):
         edges = torch.load(f"{self.root}/{self.dataset}_edges.pt")
         labels = torch.load(f"{self.root}/{self.dataset}_labels.pt")
 
+        def construct_data(idx, graph_num):
+            return Data(
+                x=nodes[idx][graph_num],
+                edge_index=edge_idxs[idx][graph_num],
+                edge_attr=edges[idx][graph_num],
+                num_nodes=len(nodes[idx][graph_num]),
+            )
+
         data_list = [
             Data(
-                x=node,
-                edge_index=edge_idx,
-                edge_attr=edge,
-                y=label,
-                num_nodes=len(node),
+                x1=construct_data(i, 0),
+                x2=construct_data(i, 1),
+                y=labels[i],
             )
-            for node, edge_idx, edge, label in zip(nodes, edge_idxs, edges, labels)
+            for i in range(len(nodes))
         ]
 
         self.save(data_list, self.processed_paths[0])
