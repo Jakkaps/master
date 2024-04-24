@@ -1,4 +1,5 @@
 import torch
+import torch.nn.functional as F
 from torch_geometric.data import Data, InMemoryDataset
 
 
@@ -20,19 +21,16 @@ class ChatDataset(InMemoryDataset):
         edges = torch.load(f"{self.root}/{self.dataset}_edges.pt")
         labels = torch.load(f"{self.root}/{self.dataset}_labels.pt")
 
-        def construct_data(idx, graph_num):
-            return Data(
-                x=nodes[idx][graph_num],
-                edge_index=edge_idxs[idx][graph_num],
-                edge_attr=edges[idx][graph_num],
-                num_nodes=len(nodes[idx][graph_num]),
-            )
-
         data_list = [
             Data(
-                x1=construct_data(i, 0),
-                x2=construct_data(i, 1),
+                x1=nodes[i][0],
+                edge_index1=edge_idxs[i][0],
+                edge_attr1=edges[i][0],
+                x2=nodes[i][1],
+                edge_index2=edge_idxs[i][1],
+                edge_attr2=edges[i][1],
                 y=labels[i],
+                num_nodes=len(nodes[i][1]),
             )
             for i in range(len(nodes))
         ]

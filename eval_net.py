@@ -2,12 +2,12 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
+from peft import LoraConfig, TaskType, get_peft_model
 from sentence_transformers import SentenceTransformer
 from torch import Tensor
 from torch_geometric.loader import DataLoader
 from torch_geometric.nn import MessagePassing
 from torch_geometric.utils import remove_self_loops
-from peft import LoraConfig, TaskType, get_peft_model
 from transformers import AutoModel, AutoTokenizer
 from torch_geometric.data import Data
 
@@ -18,12 +18,10 @@ class RelationAwareMP(MessagePassing):
     def __init__(self, n_relations, in_channels, out_channels):
         super().__init__(aggr="add")
         self.out_channels = out_channels
-
         self.n_relations = n_relations
         self.lins = nn.ModuleList(
             [nn.Linear(in_channels, out_channels) for _ in range(n_relations)]
         )
-
         self.norm_constants = nn.Parameter(torch.ones(n_relations))
 
     def forward(self, x, edge_index, edge_weights, edge_type):
@@ -38,15 +36,13 @@ class RelationAwareMP(MessagePassing):
             out += self.propagate(
                 relation_idxs,
                 x=x,
-                edge_type=edge_type[mask],
                 edge_weights=edge_weights,
+                type_idx=relation_type,
             )
 
         return F.relu(out)
 
-    def message(self, x_j, edge_index_i, edge_index_j, edge_type, edge_weights):
-        type_idx = edge_type[0]
-
+    def message(self, x_j, edge_index_i, edge_index_j, edge_weights, type_idx):
         norm = (
             edge_weights[edge_index_i, edge_index_j] / self.norm_constants[type_idx]
         ).unsqueeze(-1)
@@ -63,10 +59,7 @@ class MP(MessagePassing):
 
     def forward(self, x, edge_index):
         self_x = self.self_lin(x)
-
-        return self.propagate(
-            edge_index, size=(x.size(0), x.size(0)), x=x, self_x=self_x
-        )
+        return self.propagate(edge_index, x=x, self_x=self_x)
 
     def message(self, x_j):
         return self.lin(x_j)
@@ -89,65 +82,95 @@ class UtteranceEmbedding(nn.Module):
             lora_dropout=0.1,
             target_modules=["query", "key", "value"],
         )
-
-        model = SentenceTransformer("paraphrase-MiniLM-L6-v2")
+        model = AutoModel.from_pretrained(
+            "sentence-transformers/paraphrase-MiniLM-L6-v2"
+        )
         self.model = get_peft_model(model, peft_config)
 
     def forward(self, x):
-        # inputs = self.tokenizer(x, return_tensors="pt", padding=True, truncation=True)
-        # return self.model(**inputs)
-        return self.model.encode(x, convert_to_tensor=True, batch_size=len(x))
+        attn_mask = x.ne(0).int()
+        out = self.model(x, attention_mask=attn_mask)
+        embeddings = out.last_hidden_state[
+            :, 0, :
+        ]  # Index 0 for the [CLS] token in each sequence
+        return embeddings
 
 
-class EvalNet(nn.Module):
-    def __init__(
-        self, n_layers=1, n_classes=5, n_relations=9, hidden_size=768, embed_size=384
-    ):
-        super(EvalNet, self).__init__()
+def pairwise_cosine_similarity(x):
+    x_norm = x / x.norm(dim=1, keepdim=True)
+    return x_norm @ x_norm.T
+
+
+class GraphEmbedding(nn.Module):
+    def __init__(self, n_layers, n_relations, hidden_size, embed_size):
+        super(GraphEmbedding, self).__init__()
+
         self.n_layers = n_layers
 
         self.embed = UtteranceEmbedding()
-
         self.relation_aware_mp = RelationAwareMP(
             n_relations=n_relations, in_channels=embed_size, out_channels=hidden_size
         )
-
         self.mp = MP(in_channels=hidden_size, out_channels=hidden_size)
 
-        self.lin = nn.Linear(hidden_size, n_classes)
-
-    def forward(self, batch):
-        x, edge_index, edge_type = batch.x, batch.edge_index, batch.edge_attr
-
-        # Flatten the dialog graph
-        x = (
-            [utt for sublist in batch.x for utt in sublist]
-            if len(batch.x) > 1
-            else batch.x[0]
-        )
-
-        # Embed dialog utterances
+    def forward(self, x, edge_index, edge_type, batch_size):
+        # Embed utterances
         x = self.embed(x)
 
         # Construct edge weights
-        edge_weights = x @ x.T
+        edge_weights = pairwise_cosine_similarity(x)
 
         # Process the dialog graph
         for _ in range(self.n_layers):
             x = self.relation_aware_mp(x, edge_index, edge_weights, edge_type)
             x = self.mp(x, edge_index)
 
-        # Aggregate node embeddings to dialog embedding
-        x = x.mean(dim=0)
+        # Aggregate to graph level
+        x = x.view(batch_size, -1, x.size(-1))
+        x = x.mean(dim=1)
 
-        # Compute the final score from dialog embedding
+        return x
+
+
+class DialogDiscriminator(nn.Module):
+    def __init__(
+        self,
+        n_graph_layers=1,
+        n_graph_relations=9,
+        hidden_size=384,
+        embed_size=384,
+    ):
+        super(DialogDiscriminator, self).__init__()
+
+        self.graph_embed = GraphEmbedding(
+            n_layers=n_graph_layers,
+            n_relations=n_graph_relations,
+            hidden_size=hidden_size,
+            embed_size=embed_size,
+        )
+        self.lin = nn.Linear(2 * hidden_size, 1)
+
+    def forward(self, batch):
+        x1, edge_index1, edge_type1 = batch.x1, batch.edge_index1, batch.edge_attr1
+        x2, edge_index2, edge_type2 = batch.x2, batch.edge_index2, batch.edge_attr2
+
+        batch_size = batch.num_graphs
+
+        # Compute dialog embeddings
+        x1 = self.graph_embed(x1, edge_index1, edge_type1, batch_size)
+        x2 = self.graph_embed(x2, edge_index2, edge_type2, batch_size)
+
+        # Concatenate dialog embeddings for both graphs
+        x = torch.cat([x1, x2], dim=1)
+
+        # Compute the final score from dialog embeddings
         return self.lin(x)
 
 
 class EvalNetTrainer(nn.Module):
     def __init__(
         self,
-        model: EvalNet,
+        model: DialogDiscriminator,
         optimizer: torch.optim.Optimizer,
         criterion: nn.Module,
         device: torch.device,
@@ -219,20 +242,34 @@ if __name__ == "__main__":
         else ("mps" if torch.backends.mps.is_available() else "cpu")
     )
 
-    eval_net = EvalNet()
+    eval_net = DialogDiscriminator()
     eval_net.to(device)
     print_model_parameters(eval_net)
-    print_model_parameters(eval_net.embed.model)
+    print_model_parameters(eval_net.graph_embed.embed.model)
 
-    chat_dataset = ChatDataset(root="data", dataset="gogi_chats")
+    chat_dataset = ChatDataset(root="data", dataset="twitter_cs")
     loader = DataLoader(chat_dataset, batch_size=5, shuffle=True)
 
-    model = EvalNet().to(device)
+    model = DialogDiscriminator().to(device)
     # criterion = torch.nn.CrossEntropyLoss()
     criterion = torch.nn.MSELoss()  # change when changed setup from continuous scores
     optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
     trainer = EvalNetTrainer(model, optimizer, criterion, device)
 
-    trainer.train(epochs=10, loader=loader)
+    trainer.train(epochs=1, loader=loader)
     trainer.eval(loader=loader)
     trainer.save("trained_model.pth")
+    model = DialogDiscriminator()
+    model.to(device)
+
+    # print_model_parameters(model)
+    # print_model_parameters(model.graph_embed.embed.model)
+
+    # chat_dataset = ChatDataset(root="data", dataset="twitter_cs")
+    # loader = DataLoader(chat_dataset, batch_size=2, shuffle=True)
+
+    # for batch in loader:
+    #     batch = batch.to(device)
+    #     out = model(batch)
+    #     print(out, batch.y)
+    #     break
