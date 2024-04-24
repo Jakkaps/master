@@ -164,11 +164,13 @@ class DialogDiscriminator(nn.Module):
         # Compute the final score from dialog embeddings
         return self.lin(x)
 
+
 def print_model_parameters(model):
     total_params = sum(p.numel() for p in model.parameters())
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"Total Parameters: {total_params:,}")
     print(f"Trainable Parameters: {trainable_params:,}")
+
 
 if __name__ == "__main__":
     device = torch.device(
@@ -177,10 +179,11 @@ if __name__ == "__main__":
         else ("mps" if torch.backends.mps.is_available() else "cpu")
     )
 
-    print_model_parameters(eval_net)
-    print_model_parameters(eval_net.embed.model)
     model = DialogDiscriminator()
     model.to(device)
+
+    print_model_parameters(model)
+    print_model_parameters(model.graph_embed.embed.model)
 
     chat_dataset = ChatDataset(root="data", dataset="twitter_cs")
     loader = DataLoader(chat_dataset, batch_size=2, shuffle=True)
