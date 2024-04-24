@@ -1,3 +1,5 @@
+import random
+
 import torch
 import torch.nn.functional as F
 from torch_geometric.data import Data, InMemoryDataset
@@ -5,15 +7,22 @@ from torch_geometric.data import Data, InMemoryDataset
 
 class ChatDataset(InMemoryDataset):
     def __init__(
-        self, root, dataset, transform=None, pre_transform=None, pre_filter=None
+        self,
+        root,
+        dataset,
+        transform=None,
+        pre_transform=None,
+        pre_filter=None,
+        split="train",
     ):
         self.dataset = dataset
         super().__init__(root, transform, pre_transform, pre_filter)
-        self.load(self.processed_paths[0])
+        path = self.processed_paths[0] if split == "train" else self.processed_paths[1]
+        self.load(path)
 
     @property
     def processed_file_names(self):
-        return [f"{self.dataset}_processed.pt"]
+        return [f"{self.dataset}_train.pt", f"{self.dataset}_test"]
 
     def process(self):
         nodes = torch.load(f"{self.root}/{self.dataset}_nodes.pt")
@@ -35,4 +44,11 @@ class ChatDataset(InMemoryDataset):
             for i in range(len(nodes))
         ]
 
-        self.save(data_list, self.processed_paths[0])
+        random.shuffle(data_list)
+        split_idx = int(0.8 * len(data_list))
+
+        train_data = data_list[:split_idx]
+        test_data = data_list[split_idx:]
+
+        self.save(train_data, self.processed_paths[0])
+        self.save(test_data, self.processed_paths[1])

@@ -1,5 +1,6 @@
 .venv
-raw_data
 __pycache__
 .DS_Store
+
 data
+models

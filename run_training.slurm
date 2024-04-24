@@ -5,7 +5,7 @@
 #SBATCH --account=share-ie-idi
 #SBATCH --nodes=1
 #SBATCH --gres=gpu
-#SBATCH --mem=100G
+#SBATCH --mem=32G
 #SBATCH --constraint=gpu32g
 #SBATCH --output=training.txt
 
