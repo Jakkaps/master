@@ -1,0 +1,14 @@
+#!/bin/sh
+#SBATCH --partition=GPUQ
+#SBATCH --time=200:00:00
+#SBATCH --job-name="dialog-dicriminator"
+#SBATCH --account=share-ie-idi
+#SBATCH --nodes=1
+#SBATCH --gres=gpu
+#SBATCH --mem=100G
+#SBATCH --constraint=gpu32g
+#SBATCH --output=training.txt
+
+module load Python/3.9.6-GCCcore-11.2.0
+module load CUDA/11.8.0
+python run_training.py
