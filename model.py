@@ -185,7 +185,7 @@ if __name__ == "__main__":
     print_model_parameters(model)
     print_model_parameters(model.graph_embed.embed.model)
 
-    chat_dataset = ChatDataset(root="processed_data", dataset="twitter_cs")
+    chat_dataset = ChatDataset(root="data", dataset="twitter_cs")
     loader = DataLoader(chat_dataset, batch_size=2, shuffle=True)
 
     for batch in loader:
