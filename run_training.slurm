@@ -11,4 +11,5 @@
 
 module load Python/3.9.6-GCCcore-11.2.0
 module load CUDA/11.8.0
+source .venv/bin/activate
 python run_training.py
