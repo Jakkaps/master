@@ -22,7 +22,7 @@ class ChatDataset(InMemoryDataset):
 
     @property
     def processed_file_names(self):
-        return [f"{self.dataset}_train.pt", f"{self.dataset}_test"]
+        return [f"{self.dataset}_train.pt", f"{self.dataset}_test.pt"]
 
     def process(self):
         nodes = torch.load(f"{self.root}/{self.dataset}_nodes.pt")
