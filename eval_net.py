@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import matplotlib.pyplot as plt
 from sentence_transformers import SentenceTransformer
 from torch import Tensor
 from torch_geometric.loader import DataLoader
@@ -8,6 +9,7 @@ from torch_geometric.nn import MessagePassing
 from torch_geometric.utils import remove_self_loops
 from peft import LoraConfig, TaskType, get_peft_model
 from transformers import AutoModel, AutoTokenizer
+from torch_geometric.data import Data
 
 from chat_dataset import ChatDataset
 
@@ -87,10 +89,7 @@ class UtteranceEmbedding(nn.Module):
             lora_dropout=0.1,
             target_modules=["query", "key", "value"],
         )
-        # self.tokenizer = AutoTokenizer.from_pretrained("sentence-transformers/paraphrase-MiniLM-L6-v2")
-        # model = AutoModel.from_pretrained(
-        #     "sentence-transformers/paraphrase-MiniLM-L6-v2"
-        # )
+
         model = SentenceTransformer("paraphrase-MiniLM-L6-v2")
         self.model = get_peft_model(model, peft_config)
 
@@ -144,11 +143,74 @@ class EvalNet(nn.Module):
         # Compute the final score from dialog embedding
         return self.lin(x)
 
+
+class EvalNetTrainer(nn.Module):
+    def __init__(
+        self,
+        model: EvalNet,
+        optimizer: torch.optim.Optimizer,
+        criterion: nn.Module,
+        device: torch.device,
+    ):
+        super().__init__()
+        self.model = model
+        self.optimizer = optimizer
+        self.criterion = criterion
+        self.device = device
+
+    def save(self, path):
+        torch.save(self.model.state_dict(), path)
+
+    def load(self, path):
+        self.model.load_state_dict(torch.load(path))
+
+    def train(self, loader, epochs):
+        self.model.train()
+        for epoch in range(epochs):
+            running_loss = 0.0
+            for i, batch in enumerate(loader):
+                batch = batch.to(self.device)
+                self.optimizer.zero_grad()
+                out = self.model(batch)
+                loss = self.criterion(out, batch.y)
+                loss.backward()
+                self.optimizer.step()
+                running_loss += loss.item() * batch.size(0)
+                if (i + 1) % 100 == 0:
+                    print(
+                        f"Epoch: {epoch + 1}, Batch: {i + 1}, Loss: {running_loss / 100}"
+                    )
+                    running_loss = 0.0
+
+            print(f"Epoch {epoch + 1} finished")
+
+        print("Training complete")
+
+    def eval(self, loader):
+        self.model.eval()
+        criterion = torch.nn.MSELoss()  # change later
+        total_loss = 0
+        num_graphs = 0
+
+        with torch.no_grad():
+            for data in loader:
+                data = data.to(self.device)
+                outputs = model(data)
+                targets = data.y
+                loss = criterion(outputs, targets.view(-1))
+                total_loss += loss.item()
+                num_graphs += 1
+
+        average_loss = total_loss / num_graphs
+        print(f"Average Loss: {average_loss}")
+
+
 def print_model_parameters(model):
     total_params = sum(p.numel() for p in model.parameters())
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"Total Parameters: {total_params:,}")
     print(f"Trainable Parameters: {trainable_params:,}")
+
 
 if __name__ == "__main__":
     device = torch.device(
@@ -159,15 +221,18 @@ if __name__ == "__main__":
 
     eval_net = EvalNet()
     eval_net.to(device)
-   
     print_model_parameters(eval_net)
     print_model_parameters(eval_net.embed.model)
 
     chat_dataset = ChatDataset(root="data", dataset="gogi_chats")
-    loader = DataLoader(chat_dataset, batch_size=1)
+    loader = DataLoader(chat_dataset, batch_size=5, shuffle=True)
 
-    for batch in loader:
-        batch = batch.to(device)
-        out = eval_net(batch)
-        print(out)
-        break
+    model = EvalNet().to(device)
+    # criterion = torch.nn.CrossEntropyLoss()
+    criterion = torch.nn.MSELoss()  # change when changed setup from continuous scores
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    trainer = EvalNetTrainer(model, optimizer, criterion, device)
+
+    trainer.train(epochs=10, loader=loader)
+    trainer.eval(loader=loader)
+    trainer.save("trained_model.pth")
