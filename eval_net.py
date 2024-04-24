@@ -248,28 +248,43 @@ if __name__ == "__main__":
     print_model_parameters(eval_net.graph_embed.embed.model)
 
     chat_dataset = ChatDataset(root="data", dataset="twitter_cs")
-    loader = DataLoader(chat_dataset, batch_size=5, shuffle=True)
+    small_loader = DataLoader(chat_dataset, batch_size=2, shuffle=True)
 
-    model = DialogDiscriminator().to(device)
+    for batch in small_loader:
+        batch = batch.to(device)
+        try:
+            out = eval_net(batch)
+            print(out)
+        except Exception as e:
+            print(e)
+        break
+
+    batch = next(iter(small_loader))
+    batch = batch.to(device)
     # criterion = torch.nn.CrossEntropyLoss()
     criterion = torch.nn.MSELoss()  # change when changed setup from continuous scores
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
-    trainer = EvalNetTrainer(model, optimizer, criterion, device)
 
-    trainer.train(epochs=1, loader=loader)
-    trainer.eval(loader=loader)
-    trainer.save("trained_model.pth")
-    model = DialogDiscriminator()
-    model.to(device)
+    try:
+        out = eval_net(batch)
+        loss = criterion(out, batch.y)
+        loss.backward()  # To check if gradients can be computed without error
+        print(f"Loss calculated: {loss.item()}")
+    except Exception as e:
+        print(f"Error during training step: {e}")
+
+    model = DialogDiscriminator().to(device)
+
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    # trainer = EvalNetTrainer(model, optimizer, criterion, device)
+
+    # trainer.train(epochs=1, loader=loader)
+    # trainer.eval(loader=loader)
+    # trainer.save("trained_model.pth")
+    # model = DialogDiscriminator()
+    # model.to(device)
 
     # print_model_parameters(model)
     # print_model_parameters(model.graph_embed.embed.model)
 
     # chat_dataset = ChatDataset(root="data", dataset="twitter_cs")
     # loader = DataLoader(chat_dataset, batch_size=2, shuffle=True)
-
-    # for batch in loader:
-    #     batch = batch.to(device)
-    #     out = model(batch)
-    #     print(out, batch.y)
-    #     break
