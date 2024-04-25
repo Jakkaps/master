@@ -87,7 +87,7 @@ def main(
     lr: float,
     epochs: int,
     batch_size: int,
-    n_training_points: int | None = None,
+    n_training_points: int,
 ):
     log_file = open(f"logs/lr={lr}_epochs={epochs}_batch_size={batch_size}.log", "w+")
     sys.stdout = log_file

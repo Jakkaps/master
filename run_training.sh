@@ -6,7 +6,7 @@
 #SBATCH --nodes=1
 #SBATCH --gres=gpu
 #SBATCH --mem=32G
-#SBATCH --constraint=gpu24g
+#SBATCH --constraint=gpu32g
 #SBATCH --output=training.txt
 
 -
