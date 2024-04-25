@@ -78,6 +78,15 @@ class EvalNetTrainer(nn.Module):
         print(f"Eval loss: {average_loss}")
 
 
+class HingeLoss(nn.Module):
+    def __init__(self):
+        super(HingeLoss, self).__init__()
+
+    def forward(self, output, target):
+        hinge_loss = torch.clamp(1 - target * output, min=0)
+        return torch.mean(hinge_loss)
+
+
 @click.command()
 @click.option("--lr", default=0.001, help="Learning rate")
 @click.option("--epochs", default=1, help="Number of epochs")
@@ -110,7 +119,7 @@ def main(
     )
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 
-    criterion = torch.nn.MSELoss()
+    criterion = HingeLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
     trainer = EvalNetTrainer(model, optimizer, criterion, device)
