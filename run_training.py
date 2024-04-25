@@ -1,3 +1,6 @@
+from statistics import mean
+
+import click
 import torch
 import torch.nn as nn
 from torch.utils.data import Subset
@@ -25,8 +28,9 @@ class EvalNetTrainer(nn.Module):
     def train(self, loader, epochs):
         self.model.train()
 
+        epoch_losses = []
         for epoch in range(epochs):
-            running_loss = 0.0
+            batch_losses = []
             progress_bar = tqdm(
                 enumerate(loader),
                 total=len(loader),
@@ -34,7 +38,7 @@ class EvalNetTrainer(nn.Module):
                 leave=True,
             )
 
-            for i, batch in enumerate(loader):
+            for batch in loader:
                 batch = batch.to(self.device)
                 self.optimizer.zero_grad()
 
@@ -43,12 +47,16 @@ class EvalNetTrainer(nn.Module):
                 loss.backward()
                 self.optimizer.step()
 
-                running_loss += loss.item()
-                progress_bar.update(1)
+                batch_losses.append(loss.item())
 
-                if (i + 1) % 100 == 0 or i == len(loader) - 1:
-                    progress_bar.set_postfix(loss=running_loss / ((i % 100) + 1))
-                    running_loss = 0.0
+                progress_bar.update(1)
+                progress_bar.set_postfix(loss=mean(batch_losses))
+
+            progress_bar.close()
+            epoch_losses.append(mean(batch_losses))
+            print(f"Epoch {epoch + 1}/{epochs} Loss: {epoch_losses[-1]}\n")
+
+        return epoch_losses
 
     def eval(self, loader):
         self.model.eval()
@@ -59,17 +67,27 @@ class EvalNetTrainer(nn.Module):
         with torch.no_grad():
             for data in loader:
                 data = data.to(self.device)
-                outputs = model(data)
+                outputs = self.model(data)
                 targets = data.y
-                loss = criterion(outputs, targets.view(-1))
+                loss = self.criterion(outputs, targets.view(-1))
                 total_loss += loss.item()
                 num_graphs += 1
 
         average_loss = total_loss / num_graphs
-        print(f"Average Loss: {average_loss}")
+        print(f"Eval loss: {average_loss}")
 
 
-if __name__ == "__main__":
+@click.command()
+@click.option("--lr", default=0.001, help="Learning rate")
+@click.option("--epochs", default=1, help="Number of epochs")
+@click.option("--batch_size", default=16, help="Batch size")
+@click.option("--n_training_points", type=int, help="Number of training points")
+def main(
+    lr: float,
+    epochs: int,
+    batch_size: int,
+    n_training_points: int | None = None,
+):
     device = torch.device(
         "cuda"
         if torch.cuda.is_available()
@@ -77,30 +95,35 @@ if __name__ == "__main__":
     )
     torch.cuda.empty_cache()  # Clear memory cache on the GPU if available
 
-    config = {
-        "lr": 0.001,
-        "epochs": 1,
-        "batch_size": 16,
-    }
-
     model = DialogDiscriminator()
     model.to(device)
 
     train_dataset = ChatDataset(root="data", dataset="twitter_cs", split="train")
-    train_loader = DataLoader(
-        train_dataset, batch_size=config["batch_size"], shuffle=True
+    train_dataset = (
+        Subset(train_dataset, range(n_training_points))
+        if n_training_points
+        else train_dataset
     )
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 
     criterion = torch.nn.MSELoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=config["lr"])
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
     trainer = EvalNetTrainer(model, optimizer, criterion, device)
-    trainer.train(epochs=config["epochs"], loader=train_loader)
+    epoch_losses = trainer.train(epochs=epochs, loader=train_loader)
 
     test_dataset = ChatDataset(root="data", dataset="twitter_cs", split="test")
-    test_loader = DataLoader(
-        test_dataset, batch_size=config["batch_size"], shuffle=False
+    test_dataset = (
+        Subset(test_dataset, range(n_training_points))
+        if n_training_points
+        else test_dataset
     )
-    trainer.eval(loader=train_loader)
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+    trainer.eval(loader=test_loader)
 
-    trainer.save("models/trained_model.pth")
+    model_name = f"models/lr={lr}_epochs={epochs}_batch_size={batch_size}_model.pth"
+    trainer.save(model_name)
+
+
+if __name__ == "__main__":
+    main()
