@@ -1,3 +1,4 @@
+import sys
 from statistics import mean
 
 import click
@@ -88,6 +89,9 @@ def main(
     batch_size: int,
     n_training_points: int | None = None,
 ):
+    log_file = open(f"logs/lr={lr}_epochs={epochs}_batch_size={batch_size}.log", "w+")
+    sys.stdout = log_file
+
     device = torch.device(
         "cuda"
         if torch.cuda.is_available()
@@ -123,6 +127,8 @@ def main(
 
     model_name = f"models/lr={lr}_epochs={epochs}_batch_size={batch_size}_model.pth"
     trainer.save(model_name)
+
+    log_file.close()
 
 
 if __name__ == "__main__":
