@@ -186,8 +186,8 @@ if __name__ == "__main__":
 
     batch = next(iter(small_loader))
     batch = batch.to(device)
-    # criterion = torch.nn.CrossEntropyLoss()
-    criterion = torch.nn.MSELoss()  # change when changed setup from continuous scores
+    criterion = torch.nn.CrossEntropyLoss()
+    # criterion = torch.nn.MSELoss()  # change when changed setup from continuous scores
 
     try:
         out = eval_net(batch)
