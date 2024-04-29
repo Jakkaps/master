@@ -1,6 +1,6 @@
 #!/bin/sh
 #SBATCH --partition=GPUQ
-#SBATCH --time=200:00:00
+#SBATCH --time=10:00:00
 #SBATCH --job-name="dialog-dicriminator"
 #SBATCH --account=share-ie-idi
 #SBATCH --nodes=1
