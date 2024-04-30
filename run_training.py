@@ -107,7 +107,7 @@ def main(
         f"logs/n_layers={n_layers}_lr={lr}_epochs={epochs}_batch_size={batch_size}.log",
         "w+",
     )
-    sys.stdout = log_file
+    # sys.stdout = log_file
 
     device = torch.device(
         "cuda"
@@ -115,6 +115,7 @@ def main(
         else ("mps" if torch.backends.mps.is_available() else "cpu")
     )
     torch.cuda.empty_cache()  # Clear memory cache on the GPU if available
+    torch.mps.empty_cache()
 
     model = DialogDiscriminator(n_graph_layers=n_layers)
     model.to(device)
@@ -131,16 +132,7 @@ def main(
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
     trainer = EvalNetTrainer(model, optimizer, criterion, device)
-    epoch_losses = trainer.train(epochs=epochs, loader=train_loader)
-
-    """     test_dataset = ChatDataset(root="data", dataset="twitter_cs", split="test")
-    test_dataset = (
-        Subset(test_dataset, range(n_training_points))
-        if n_training_points
-        else test_dataset
-    )
-    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
-    trainer.eval(loader=test_loader) """
+    trainer.train(epochs=epochs, loader=train_loader)
 
     model_name = f"models/n_layers={n_layers}_lr={lr}_epochs={epochs}_batch_size={batch_size}_model.pth"
     trainer.save(model_name)

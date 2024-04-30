@@ -13,4 +13,4 @@
 module load Python/3.9.6-GCCcore-11.2.0
 module load CUDA/11.8.0
 source .venv/bin/activate
-python run_training.py --lr 0.001 --epochs 5 --batch_size 16 --n_layers=10
+python run_training.py --lr 0.0001 --epochs 5 --batch_size 16 --n_layers=10

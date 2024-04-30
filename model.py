@@ -168,7 +168,6 @@ class DialogDiscriminator(nn.Module):
             embed_size=embed_size,
         )
         self.lin = nn.Linear(2 * hidden_size, 1)
-        self.tanh = nn.Tanh()
 
     def forward(self, batch):
         x1, edge_index1, edge_type1 = batch.x1, batch.edge_index1, batch.edge_attr1
@@ -184,4 +183,4 @@ class DialogDiscriminator(nn.Module):
         x = torch.cat([x1, x2], dim=1)
 
         # Compute the final score from dialog embeddings
-        return self.tanh(self.lin(x).squeeze())
+        return self.lin(x).squeeze()
