@@ -119,6 +119,9 @@ def main(
     )
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 
+    # Compile the model to optimize performance
+    model = torch.compile(model)
+
     criterion = HingeLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
