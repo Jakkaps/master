@@ -114,8 +114,10 @@ def main(
         if torch.cuda.is_available()
         else ("mps" if torch.backends.mps.is_available() else "cpu")
     )
-    torch.cuda.empty_cache()  # Clear memory cache on the GPU if available
-    torch.mps.empty_cache()
+    if device == "cuda":
+        torch.cuda.empty_cache()  # Clear memory cache on the GPU if available
+    elif device == "mps":
+        torch.mps.empty_cache()
 
     model = DialogDiscriminator(n_graph_layers=n_layers)
     model.to(device)
