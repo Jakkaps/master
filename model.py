@@ -9,9 +9,15 @@ from transformers import AutoModel
 from data import ChatDataset
 
 
+def print_tensor_stats(tensor):
+    row_means = tensor.mean(dim=1)
+    row_stds = tensor.std(dim=1)
+    print(f"Mean: {row_means.mean():.2f},\tStd: {row_stds.mean():.2f}")
+
+
 class RelationAwareMP(MessagePassing):
     def __init__(self, n_relations, in_channels, out_channels):
-        super().__init__(aggr="add")
+        super().__init__(aggr="mean")
         self.out_channels = out_channels
         self.n_relations = n_relations
         self.lins = nn.ModuleList(
@@ -48,7 +54,7 @@ class RelationAwareMP(MessagePassing):
 
 class MP(MessagePassing):
     def __init__(self, in_channels, out_channels):
-        super(MP, self).__init__(aggr="add")
+        super(MP, self).__init__(aggr="mean")
         self.lin = torch.nn.Linear(in_channels, out_channels)
         self.self_lin = torch.nn.Linear(in_channels, out_channels)
 
@@ -66,7 +72,7 @@ class MP(MessagePassing):
 class UtteranceEmbedding(nn.Module):
     """Embeds dialog utterances into a fixed-size vector."""
 
-    def __init__(self):
+    def __init__(self, embed_size):
         super(UtteranceEmbedding, self).__init__()
 
         peft_config = LoraConfig(
@@ -81,6 +87,7 @@ class UtteranceEmbedding(nn.Module):
             "sentence-transformers/paraphrase-MiniLM-L6-v2"
         )
         self.model = get_peft_model(model, peft_config)
+        self.bn = nn.BatchNorm1d(embed_size)
 
     def forward(self, x):
         attn_mask = x.ne(0).int()
@@ -88,7 +95,7 @@ class UtteranceEmbedding(nn.Module):
         embeddings = out.last_hidden_state[
             :, 0, :
         ]  # Index 0 for the [CLS] token in each sequence
-        return embeddings
+        return self.bn(embeddings)
 
 
 def pairwise_cosine_similarity(x):
@@ -101,12 +108,25 @@ class GraphEmbedding(nn.Module):
         super(GraphEmbedding, self).__init__()
 
         self.n_layers = n_layers
+        self.embed = UtteranceEmbedding(embed_size=embed_size)
 
-        self.embed = UtteranceEmbedding()
-        self.relation_aware_mp = RelationAwareMP(
-            n_relations=n_relations, in_channels=embed_size, out_channels=hidden_size
-        )
-        self.mp = MP(in_channels=hidden_size, out_channels=hidden_size)
+        relation_aware_mps = []
+        mps = []
+
+        current_size = embed_size
+        for _ in range(n_layers):
+            relation_aware_mps.append(
+                RelationAwareMP(
+                    n_relations=n_relations,
+                    in_channels=current_size,
+                    out_channels=hidden_size,
+                )
+            )
+            mps.append(MP(in_channels=hidden_size, out_channels=hidden_size))
+            current_size = hidden_size
+
+        self.relation_aware_mps = nn.ModuleList(relation_aware_mps)
+        self.mps = nn.ModuleList(mps)
 
     def forward(self, x, edge_index, edge_type, batch_size):
         # Embed utterances
@@ -116,9 +136,13 @@ class GraphEmbedding(nn.Module):
         edge_weights = pairwise_cosine_similarity(x)
 
         # Process the dialog graph
-        for _ in range(self.n_layers):
-            x = self.relation_aware_mp(x, edge_index, edge_weights, edge_type)
-            x = self.mp(x, edge_index)
+        for i in range(self.n_layers):
+            x = (
+                self.mps[i](
+                    self.relation_aware_mps[i](x, edge_index, edge_weights, edge_type),
+                    edge_index,
+                )
+            ) + x
 
         # Aggregate to graph level
         x = x.view(batch_size, -1, x.size(-1))
@@ -144,6 +168,7 @@ class DialogDiscriminator(nn.Module):
             embed_size=embed_size,
         )
         self.lin = nn.Linear(2 * hidden_size, 1)
+        self.tanh = nn.Tanh()
 
     def forward(self, batch):
         x1, edge_index1, edge_type1 = batch.x1, batch.edge_index1, batch.edge_attr1
@@ -159,57 +184,4 @@ class DialogDiscriminator(nn.Module):
         x = torch.cat([x1, x2], dim=1)
 
         # Compute the final score from dialog embeddings
-        return self.lin(x).squeeze()
-
-
-if __name__ == "__main__":
-    device = torch.device(
-        "cuda"
-        if torch.cuda.is_available()
-        else ("mps" if torch.backends.mps.is_available() else "cpu")
-    )
-
-    eval_net = DialogDiscriminator()
-    eval_net.to(device)
-
-    chat_dataset = ChatDataset(root="data", dataset="twitter_cs")
-    small_loader = DataLoader(chat_dataset, batch_size=2, shuffle=True)
-
-    for batch in small_loader:
-        batch = batch.to(device)
-        try:
-            out = eval_net(batch)
-            print(out)
-        except Exception as e:
-            print(e)
-        break
-
-    batch = next(iter(small_loader))
-    batch = batch.to(device)
-    criterion = torch.nn.CrossEntropyLoss()
-    # criterion = torch.nn.MSELoss()  # change when changed setup from continuous scores
-
-    try:
-        out = eval_net(batch)
-        loss = criterion(out, batch.y)
-        loss.backward()  # To check if gradients can be computed without error
-        print(f"Loss calculated: {loss.item()}")
-    except Exception as e:
-        print(f"Error during training step: {e}")
-
-    model = DialogDiscriminator().to(device)
-
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
-    # trainer = EvalNetTrainer(model, optimizer, criterion, device)
-
-    # trainer.train(epochs=1, loader=loader)
-    # trainer.eval(loader=loader)
-    # trainer.save("trained_model.pth")
-    # model = DialogDiscriminator()
-    # model.to(device)
-
-    # print_model_parameters(model)
-    # print_model_parameters(model.graph_embed.embed.model)
-
-    # chat_dataset = ChatDataset(root="data", dataset="twitter_cs")
-    # loader = DataLoader(chat_dataset, batch_size=2, shuffle=True)
+        return self.tanh(self.lin(x).squeeze())

@@ -26,7 +26,7 @@ class EvalNetTrainer(nn.Module):
     def load(self, path):
         self.model.load_state_dict(torch.load(path))
 
-    def train(self, loader, epochs):
+    def train(self, loader, epochs, loss_window=10):
         self.model.train()
 
         epoch_losses = []
@@ -51,7 +51,10 @@ class EvalNetTrainer(nn.Module):
                 batch_losses.append(loss.item())
 
                 progress_bar.update(1)
-                progress_bar.set_postfix(loss=mean(batch_losses))
+                progress_bar.set_postfix(
+                    epoch_loss=mean(batch_losses),
+                    window_loss=mean(batch_losses[-loss_window:]),
+                )
 
             progress_bar.close()
             epoch_losses.append(mean(batch_losses))
@@ -92,13 +95,18 @@ class HingeLoss(nn.Module):
 @click.option("--epochs", default=1, help="Number of epochs")
 @click.option("--batch_size", default=16, help="Batch size")
 @click.option("--n_training_points", type=int, help="Number of training points")
+@click.option("--n_layers", default=1, type=int, help="Number of layers")
 def main(
     lr: float,
     epochs: int,
     batch_size: int,
     n_training_points: int,
+    n_layers: int,
 ):
-    log_file = open(f"logs/lr={lr}_epochs={epochs}_batch_size={batch_size}.log", "w+")
+    log_file = open(
+        f"logs/n_layers={n_layers}_lr={lr}_epochs={epochs}_batch_size={batch_size}.log",
+        "w+",
+    )
     sys.stdout = log_file
 
     device = torch.device(
@@ -108,7 +116,7 @@ def main(
     )
     torch.cuda.empty_cache()  # Clear memory cache on the GPU if available
 
-    model = DialogDiscriminator()
+    model = DialogDiscriminator(n_graph_layers=n_layers)
     model.to(device)
 
     train_dataset = ChatDataset(root="data", dataset="twitter_cs", split="train")
@@ -119,25 +127,22 @@ def main(
     )
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 
-    # Compile the model to optimize performance
-    model = torch.compile(model)
-
     criterion = HingeLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
     trainer = EvalNetTrainer(model, optimizer, criterion, device)
     epoch_losses = trainer.train(epochs=epochs, loader=train_loader)
 
-    test_dataset = ChatDataset(root="data", dataset="twitter_cs", split="test")
+    """     test_dataset = ChatDataset(root="data", dataset="twitter_cs", split="test")
     test_dataset = (
         Subset(test_dataset, range(n_training_points))
         if n_training_points
         else test_dataset
     )
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
-    trainer.eval(loader=test_loader)
+    trainer.eval(loader=test_loader) """
 
-    model_name = f"models/lr={lr}_epochs={epochs}_batch_size={batch_size}_model.pth"
+    model_name = f"models/n_layers={n_layers}_lr={lr}_epochs={epochs}_batch_size={batch_size}_model.pth"
     trainer.save(model_name)
 
     log_file.close()
