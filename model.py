@@ -91,9 +91,16 @@ class UtteranceEmbedding(nn.Module):
         return embeddings
 
 
-def pairwise_cosine_similarity(x):
+def pairwise_cosine_similarity(x, decay_factor=0.9):
     x_norm = x / x.norm(dim=1, keepdim=True)
-    return x_norm @ x_norm.T
+    similarity_matrix = x_norm @ x_norm.T
+    seq_length = x.size(0)
+    for i in range(seq_length):
+        for j in range(seq_length):
+            distance = abs(j - i)
+            similarity_matrix[i, j] *= decay_factor ** distance
+    return similarity_matrix
+
 
 
 class GraphEmbedding(nn.Module):
