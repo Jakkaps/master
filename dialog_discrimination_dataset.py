@@ -5,7 +5,7 @@ import torch.nn.functional as F
 from torch_geometric.data import Data, InMemoryDataset
 
 
-class ChatDataset(InMemoryDataset):
+class DialogDiscriminationDataset(InMemoryDataset):
     def __init__(
         self,
         root,
