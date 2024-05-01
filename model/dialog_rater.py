@@ -11,8 +11,8 @@ class DialogRater(nn.Module):
         n_graph_relations=9,
         embed_dim=384,
         graph_hidden_size=384,
-        graph_out_size=10,
-        n_dimensions=5,
+        graph_out_dim=10,
+        n_dimensions=4,
     ):
         super(DialogRater, self).__init__()
 
@@ -21,9 +21,10 @@ class DialogRater(nn.Module):
             n_relations=n_graph_relations,
             embed_dim=embed_dim,
             hidden_dim=graph_hidden_size,
-            out_dim=graph_out_size,
+            out_dim=graph_out_dim,
         )
-        self.lin = nn.Linear(graph_out_size, n_dimensions)
+        self.bn = nn.BatchNorm1d(graph_out_dim)
+        self.lin = nn.Linear(graph_out_dim, n_dimensions)
 
     def forward(self, batch):
         x, edge_index, edge_type = batch.x, batch.edge_index, batch.edge_attr
@@ -31,5 +32,7 @@ class DialogRater(nn.Module):
 
         # Compute dialog embeddings
         x = self.graph_embed(x, edge_index, edge_type, batch_size)
+
+        x = self.bn(x)
 
         return self.lin(x).squeeze()

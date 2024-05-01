@@ -7,6 +7,22 @@ from tqdm import tqdm
 from utils import get_torch_device
 
 
+class MultiDimensionMSELoss(nn.Module):
+    def __init__(self, num_classes=None):
+        super(MultiDimensionMSELoss, self).__init__()
+        self.mse = nn.MSELoss(reduction="none")
+        self.num_classes = num_classes
+
+    def forward(self, output, target):
+        if target.dim() == 1 and self.num_classes:
+            target = target.view((-1, self.num_classes))
+
+        mse = self.mse(output, target)
+        s = torch.mean(torch.sum(mse, dim=1))
+
+        return s
+
+
 class HingeLoss(nn.Module):
     def __init__(self):
         super(HingeLoss, self).__init__()
@@ -18,7 +34,11 @@ class HingeLoss(nn.Module):
 
 class ModelManager(nn.Module):
     def __init__(
-        self, model, optimizer, criterion=HingeLoss(), device=get_torch_device()
+        self,
+        model,
+        optimizer,
+        criterion: HingeLoss | nn.MSELoss = HingeLoss(),
+        device=get_torch_device(),
     ):
         super().__init__()
         self.model = model
@@ -32,7 +52,7 @@ class ModelManager(nn.Module):
     def load(self, path):
         self.model.load_state_dict(torch.load(path))
 
-    def train(self, loader, epochs, loss_window=10):
+    def train(self, loader, epochs, loss_window=10, batch_size=None, num_classes=None):
         self.model.train()
 
         for epoch in range(epochs):

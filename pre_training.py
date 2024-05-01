@@ -8,7 +8,7 @@ from torch_geometric.loader import DataLoader
 from dialog_discrimination_dataset import DialogDiscriminationDataset
 from model.dialog_discriminator import DialogDiscriminator
 from model_manager import ModelManager
-from utils import get_base_filename, get_torch_device
+from utils import get_file_names, get_torch_device
 
 
 @click.command()
@@ -28,23 +28,23 @@ def main(
     n_layers: int,
     graph_out_dim: int,
 ):
-    name_base = get_base_filename(
+    log_name, model_name = get_file_names(
         lr, epochs, batch_size, n_training_points, n_layers, graph_out_dim
     )
     log_file = open(
-        f"logs/{mode}/{name_base}.log",
+        f"logs/{mode}/{log_name}",
         "w+",
     )
-    sys.stdout = log_file
+    # sys.stdout = log_file
 
     device = get_torch_device()
 
     model = DialogDiscriminator(n_graph_layers=n_layers, graph_out_dim=graph_out_dim)
     model.to(device)
 
-    root = "data"
     dataset = "twitter_cs"
-    model_path = f"ckpts/{name_base}.pth"
+    root = f"data/{dataset}"
+    model_path = f"ckpts/{model_name}"
 
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     manager = ModelManager(model, optimizer)
