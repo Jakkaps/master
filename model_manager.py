@@ -37,7 +37,7 @@ class ModelManager(nn.Module):
         self,
         model,
         optimizer,
-        criterion: HingeLoss | nn.MSELoss = HingeLoss(),
+        criterion=HingeLoss(),
         device=get_torch_device(),
     ):
         super().__init__()
