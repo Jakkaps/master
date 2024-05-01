@@ -7,7 +7,7 @@
 #SBATCH --gres=gpu
 #SBATCH --mem=32G
 #SBATCH --constraint=gpu16g
-#SBATCH --output=training.txt
+#SBATCH --output=training2.txt
 
 
 module load Python/3.9.6-GCCcore-11.2.0

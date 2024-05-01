@@ -1,3 +1,4 @@
+import datetime
 import sys
 from statistics import mean
 
@@ -98,7 +99,11 @@ def main(
     batch_size: int,
     n_training_points: int,
 ):
-    log_file = open(f"logs/lr={lr}_epochs={epochs}_batch_size={batch_size}.log", "w+")
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    log_file = open(
+        f"logs/time={timestamp}_lr={lr}_epochs={epochs}_batch_size={batch_size}.log",
+        "w+",
+    )
     sys.stdout = log_file
 
     device = torch.device(
@@ -137,7 +142,7 @@ def main(
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
     trainer.eval(loader=test_loader)
 
-    model_name = f"models/lr={lr}_epochs={epochs}_batch_size={batch_size}_model.pth"
+    model_name = f"models/time={timestamp}_lr={lr}_epochs={epochs}_batch_size={batch_size}_model.pth"
     trainer.save(model_name)
 
     log_file.close()
