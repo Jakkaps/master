@@ -127,6 +127,7 @@ class GraphEmbedding(nn.Module):
 
         self.relation_aware_mps = nn.ModuleList(relation_aware_mps)
         self.mps = nn.ModuleList(mps)
+        self.lin = nn.Linear(hidden_size, 1)
 
     def forward(self, x, edge_index, edge_type, batch_size):
         # Embed utterances
@@ -148,7 +149,7 @@ class GraphEmbedding(nn.Module):
         x = x.view(batch_size, -1, x.size(-1))
         x = x.mean(dim=1)
 
-        return x
+        return self.lin(x)
 
 
 class DialogDiscriminator(nn.Module):
@@ -167,7 +168,7 @@ class DialogDiscriminator(nn.Module):
             hidden_size=hidden_size,
             embed_size=embed_size,
         )
-        self.lin = nn.Linear(2 * hidden_size, 1)
+        self.lin = nn.Linear(2, 1)
 
     def forward(self, batch):
         x1, edge_index1, edge_type1 = batch.x1, batch.edge_index1, batch.edge_attr1
