@@ -9,18 +9,20 @@ class DialogDiscriminator(nn.Module):
         self,
         n_graph_layers=1,
         n_graph_relations=9,
-        hidden_size=384,
-        embed_size=384,
+        embed_dim=384,
+        graph_hidden_dim=384,
+        graph_out_dim=10,
     ):
         super(DialogDiscriminator, self).__init__()
 
         self.graph_embed = GraphEmbedding(
             n_layers=n_graph_layers,
             n_relations=n_graph_relations,
-            hidden_size=hidden_size,
-            embed_size=embed_size,
+            embed_dim=embed_dim,
+            hidden_dim=graph_hidden_dim,
+            out_dim=graph_out_dim,
         )
-        self.lin = nn.Linear(2 * hidden_size, 1)
+        self.lin = nn.Linear(2 * graph_out_dim, 1)
 
     def forward(self, batch):
         x1, edge_index1, edge_type1 = batch.x1, batch.edge_index1, batch.edge_attr1

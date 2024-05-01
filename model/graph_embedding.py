@@ -11,30 +11,29 @@ def pairwise_cosine_similarity(x):
 
 
 class GraphEmbedding(nn.Module):
-    def __init__(self, n_layers, n_relations, hidden_size, embed_size):
+    def __init__(self, n_layers, n_relations, embed_dim, hidden_dim, out_dim):
         super(GraphEmbedding, self).__init__()
 
         self.n_layers = n_layers
-        self.embed = UtteranceEmbedding(embed_size=embed_size)
+        self.embed = UtteranceEmbedding(embed_dim=embed_dim)
 
         relation_aware_mps = []
         mps = []
 
-        current_size = embed_size
-        for _ in range(n_layers):
+        for i in range(n_layers):
+            in_dim = embed_dim if i == 0 else hidden_dim
             relation_aware_mps.append(
                 RelationAwareMP(
                     n_relations=n_relations,
-                    in_channels=current_size,
-                    out_channels=hidden_size,
+                    in_dim=in_dim,
+                    out_dim=hidden_dim,
                 )
             )
-            mps.append(MP(in_channels=hidden_size, out_channels=hidden_size))
-            current_size = hidden_size
+            mps.append(MP(in_dim=hidden_dim, out_dim=hidden_dim))
 
         self.relation_aware_mps = nn.ModuleList(relation_aware_mps)
         self.mps = nn.ModuleList(mps)
-        self.lin = nn.Linear(hidden_size, 1)
+        self.lin = nn.Linear(hidden_dim, out_dim)
 
     def forward(self, x, edge_index, edge_type, batch_size):
         # Embed utterances
@@ -56,4 +55,4 @@ class GraphEmbedding(nn.Module):
         x = x.view(batch_size, -1, x.size(-1))
         x = x.mean(dim=1)
 
-        return x
+        return self.lin(x)

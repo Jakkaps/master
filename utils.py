@@ -21,5 +21,6 @@ def get_base_filename(
     batch_size: int,
     n_training_points: int,
     n_layers: int,
+    graph_out_dim: int,
 ) -> str:
-    return f"n_layers={n_layers}_lr={lr}_epochs={epochs}_batch_size={batch_size}_n_training_points={n_training_points}"
+    return f"n_layers={n_layers}_lr={lr}_epochs={epochs}_batch_size={batch_size}_n_training_points={n_training_points}_graph_out_dim={graph_out_dim}"

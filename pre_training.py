@@ -18,6 +18,7 @@ from utils import get_base_filename, get_torch_device
 @click.option("--batch_size", default=16, help="Batch size")
 @click.option("--n_training_points", type=int, help="Number of training points")
 @click.option("--n_layers", default=1, type=int, help="Number of layers")
+@click.option("--graph_out_dim", default=10, type=int, help="Graph output dimension")
 def main(
     mode: str,
     lr: float,
@@ -25,8 +26,11 @@ def main(
     batch_size: int,
     n_training_points: int,
     n_layers: int,
+    graph_out_dim: int,
 ):
-    name_base = get_base_filename(lr, epochs, batch_size, n_training_points, n_layers)
+    name_base = get_base_filename(
+        lr, epochs, batch_size, n_training_points, n_layers, graph_out_dim
+    )
     log_file = open(
         f"logs/{mode}/{name_base}.log",
         "w+",
@@ -35,12 +39,14 @@ def main(
 
     device = get_torch_device()
 
-    model = DialogDiscriminator(n_graph_layers=n_layers)
+    model = DialogDiscriminator(n_graph_layers=n_layers, graph_out_dim=graph_out_dim)
     model.to(device)
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     root = "data"
     dataset = "twitter_cs"
+    model_path = f"ckpts/{name_base}.pth"
+
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     manager = ModelManager(model, optimizer)
 
     if mode == "train":
@@ -49,14 +55,13 @@ def main(
         loader = DataLoader(data, batch_size=batch_size, shuffle=True)
 
         manager.train(epochs=epochs, loader=loader)
-        model_name = f"ckpts/{name_base}.pth"
-        manager.save(model_name)
+        manager.save(model_path)
     elif mode == "eval":
         data = DialogDiscriminationDataset(root=root, dataset=dataset, split="test")
         data = Subset(data, range(n_training_points)) if n_training_points else data
         loader = DataLoader(data, batch_size=batch_size)
 
-        manager.load(f"ckpts/{name_base}.pth")
+        manager.load(model_path)
         manager.eval(loader)
 
     log_file.close()

@@ -5,12 +5,12 @@ from torch_geometric.nn import MessagePassing
 
 
 class RelationAwareMP(MessagePassing):
-    def __init__(self, n_relations, in_channels, out_channels):
+    def __init__(self, n_relations, in_dim, out_dim):
         super().__init__(aggr="mean")
-        self.out_channels = out_channels
+        self.out_channels = out_dim
         self.n_relations = n_relations
         self.lins = nn.ModuleList(
-            [nn.Linear(in_channels, out_channels) for _ in range(n_relations)]
+            [nn.Linear(in_dim, out_dim) for _ in range(n_relations)]
         )
         self.norm_constants = nn.Parameter(torch.ones(n_relations))
 

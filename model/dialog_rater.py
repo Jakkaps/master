@@ -9,8 +9,9 @@ class DialogRater(nn.Module):
         self,
         n_graph_layers=1,
         n_graph_relations=9,
-        hidden_size=384,
-        embed_size=384,
+        embed_dim=384,
+        graph_hidden_size=384,
+        graph_out_size=10,
         n_dimensions=5,
     ):
         super(DialogRater, self).__init__()
@@ -18,10 +19,11 @@ class DialogRater(nn.Module):
         self.graph_embed = GraphEmbedding(
             n_layers=n_graph_layers,
             n_relations=n_graph_relations,
-            hidden_size=hidden_size,
-            embed_size=embed_size,
+            embed_dim=embed_dim,
+            hidden_dim=graph_hidden_size,
+            out_dim=graph_out_size,
         )
-        self.lin = nn.Linear(hidden_size, n_dimensions)
+        self.lin = nn.Linear(graph_out_size, n_dimensions)
 
     def forward(self, batch):
         x, edge_index, edge_type = batch.x, batch.edge_index, batch.edge_attr

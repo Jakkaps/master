@@ -6,7 +6,7 @@ from transformers import AutoModel
 class UtteranceEmbedding(nn.Module):
     """Embeds dialog utterances into a fixed-size vector."""
 
-    def __init__(self, embed_size):
+    def __init__(self, embed_dim):
         super(UtteranceEmbedding, self).__init__()
 
         peft_config = LoraConfig(
@@ -21,7 +21,7 @@ class UtteranceEmbedding(nn.Module):
             "sentence-transformers/paraphrase-MiniLM-L6-v2"
         )
         self.model = get_peft_model(model, peft_config)
-        self.bn = nn.BatchNorm1d(embed_size)
+        self.bn = nn.BatchNorm1d(embed_dim)
 
     def forward(self, x):
         attn_mask = x.ne(0).int()
