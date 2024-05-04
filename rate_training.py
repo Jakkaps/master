@@ -56,7 +56,7 @@ def main(
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     manager = ModelManager(model, optimizer, criterion=MultiDimensionMSELoss(4))
 
-    data = DialogRatingDataset(root=root, dataset=dataset, split="train")
+    data = DialogRatingDataset(root=root, dataset=dataset)
     data = Subset(data, range(n_training_points)) if n_training_points else data
     loader = DataLoader(data, batch_size=batch_size)
 

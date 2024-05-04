@@ -24,7 +24,8 @@ class DialogRater(nn.Module):
             out_dim=graph_out_dim,
         )
         self.bn = nn.BatchNorm1d(graph_out_dim)
-        self.lin = nn.Linear(graph_out_dim, n_dimensions)
+        self.lin1 = nn.Linear(graph_out_dim, 20)
+        self.lin2 = nn.Linear(20, n_dimensions)
 
     def forward(self, batch):
         x, edge_index, edge_type = batch.x, batch.edge_index, batch.edge_attr
@@ -35,4 +36,6 @@ class DialogRater(nn.Module):
 
         x = self.bn(x)
 
-        return self.lin(x).squeeze()
+        x = torch.relu(self.lin1(x))
+
+        return self.lin2(x).squeeze()

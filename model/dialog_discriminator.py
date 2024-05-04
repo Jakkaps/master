@@ -11,7 +11,7 @@ class DialogDiscriminator(nn.Module):
         n_graph_relations=9,
         embed_dim=384,
         graph_hidden_dim=384,
-        graph_out_dim=10,
+        graph_out_dim=384,
     ):
         super(DialogDiscriminator, self).__init__()
 
