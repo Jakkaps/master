@@ -22,7 +22,7 @@ class DialogDiscriminator(nn.Module):
             hidden_dim=graph_hidden_dim,
             out_dim=graph_out_dim,
         )
-        self.lin = nn.Linear(2 * graph_out_dim, 1)
+        self.lin = nn.Linear(2 * embed_dim, 1)
 
     def forward(self, batch):
         x1, edge_index1, edge_type1 = batch.x1, batch.edge_index1, batch.edge_attr1
