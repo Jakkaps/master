@@ -54,7 +54,7 @@ def main(
         data = Subset(data, range(n_training_points)) if n_training_points else data
         loader = DataLoader(data, batch_size=batch_size, shuffle=True)
 
-        manager.train(epochs=epochs, loader=loader)
+        manager.train(epochs=epochs, train_loader=loader, eval_loader=None)
         manager.save(model_path)
     elif mode == "eval":
         data = DialogDiscriminationDataset(root=root, dataset=dataset, split="test")
