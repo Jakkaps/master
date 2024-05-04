@@ -33,6 +33,7 @@ class GraphEmbedding(nn.Module):
 
         self.relation_aware_mps = nn.ModuleList(relation_aware_mps)
         self.mps = nn.ModuleList(mps)
+        self.lin = nn.Linear(hidden_dim, out_dim)
 
     def forward(self, x, edge_index, edge_type, batch_size):
         # Embed utterances
@@ -54,4 +55,4 @@ class GraphEmbedding(nn.Module):
         x = x.view(batch_size, -1, x.size(-1))
         x = x.mean(dim=1)
 
-        return x
+        return self.lin(x)
