@@ -9,20 +9,33 @@ from tqdm import tqdm
 from utils import get_torch_device
 
 
+class MDCE(nn.Module):
+    def __init__(self, num_classes=None):
+        super(MDCE, self).__init__()
+        self.cross_entropy = nn.CrossEntropyLoss()
+        self.num_classes = num_classes
+
+    def forward(self, output, target):
+        target = target.view(-1, 2).to(torch.float32)
+
+        return self.cross_entropy(output, target)
+
+
 class MultiDimensionMSELoss(nn.Module):
     def __init__(self, num_classes=None):
         super(MultiDimensionMSELoss, self).__init__()
         self.mse = nn.MSELoss(reduction="none")
         self.num_classes = num_classes
 
-    def forward(self, output, target):
+    def forward(self, output, target, n_dims=4):
         if target.dim() == 1 and self.num_classes:
             target = target.view((-1, self.num_classes))
 
-        mse = self.mse(output, target)
-        s = torch.mean(torch.sum(mse, dim=1))
+        se = (output[:, :n_dims] - target[:, :n_dims]) ** 2
+        mse = torch.mean(se, dim=0)
+        dim_mse = torch.sum(mse)
 
-        return s
+        return dim_mse
 
 
 class HingeLoss(nn.Module):
@@ -39,6 +52,7 @@ class ModelManager(nn.Module):
         self,
         model,
         optimizer,
+        model_base_name,
         criterion=HingeLoss(),
         device=get_torch_device(),
     ):
@@ -47,6 +61,7 @@ class ModelManager(nn.Module):
         self.optimizer = optimizer
         self.criterion = criterion
         self.device = device
+        self.model_base_name = model_base_name.split(".")[0]
 
     def save(self, path):
         torch.save(self.model.state_dict(), path)
@@ -60,6 +75,7 @@ class ModelManager(nn.Module):
         eval_loader,
         epochs,
         loss_window=10,
+        save_every_epoch=False,
         batch_size=None,
         num_classes=None,
     ):
@@ -92,11 +108,15 @@ class ModelManager(nn.Module):
                 )
 
             progress_bar.close()
-            print(f"Epoch {epoch + 1}/{epochs} Loss: {mean(batch_losses)}\n")
+
+            if save_every_epoch:
+                self.save(self.model_base_name + f"_epoch={epoch+1}.pth")
 
             if eval_loader:
-                self.calc_metrics(eval_loader, "Test")
-                print()
+                self.eval(eval_loader)
+
+                if (epoch + 1) % 10 == 0:
+                    self.calc_metrics(eval_loader, "Validation")
 
     def eval(self, loader, loss_window=10):
         self.model.eval()
@@ -119,8 +139,6 @@ class ModelManager(nn.Module):
                 )
                 progress_bar.update(1)
 
-        print(f"Eval loss: {mean(batch_losses):.3f}")
-
     def calc_metrics(self, loader, label):
         self.model.eval()
 
@@ -135,13 +153,11 @@ class ModelManager(nn.Module):
                 bsz = batch.num_graphs
                 all_targets.extend(batch.y.view((bsz, -1)).cpu().numpy())
                 all_predictions.extend(out.cpu().numpy())
-        print(label)
+
         for i in range(4):
-            print(i)
-            print(
-                f"\tR2: {r2_score([t[i] for t in all_targets], [p[i] for p in all_predictions]):.3f}"
-            )
+            r_2 = r2_score([t[i] for t in all_targets], [p[i] for p in all_predictions])
             corr, p = pearsonr(
                 [t[i] for t in all_targets], [p[i] for p in all_predictions]
             )
-            print(f"\tcorr: {corr: .2f}")
+
+            print(f"\t Dim {i+1}:\tR^2: {r_2:.3f}\tCorr: {corr:.3f}")

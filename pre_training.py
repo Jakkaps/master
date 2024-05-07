@@ -47,14 +47,16 @@ def main(
     model_path = f"ckpts/{model_name}"
 
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-    manager = ModelManager(model, optimizer)
+    manager = ModelManager(model, optimizer, model_name)
 
     if mode == "train":
         data = DialogDiscriminationDataset(root=root, dataset=dataset, split="train")
         data = Subset(data, range(n_training_points)) if n_training_points else data
         loader = DataLoader(data, batch_size=batch_size, shuffle=True)
 
-        manager.train(epochs=epochs, train_loader=loader, eval_loader=None)
+        manager.train(
+            epochs=epochs, train_loader=loader, eval_loader=None, save_every_epoch=True
+        )
         manager.save(model_path)
     elif mode == "eval":
         data = DialogDiscriminationDataset(root=root, dataset=dataset, split="test")
