@@ -47,24 +47,33 @@ def main(
     model_path = f"ckpts/{model_name}"
 
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-    manager = ModelManager(model, optimizer, model_name)
+    manager = ModelManager(model, optimizer, "ckpts/" + model_name)
+
+    train_data = DialogDiscriminationDataset(root=root, dataset=dataset, split="train")
+    train_data = (
+        Subset(train_data, range(n_training_points))
+        if n_training_points
+        else train_data
+    )
+    train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
+
+    test_data = DialogDiscriminationDataset(root=root, dataset=dataset, split="test")
+    test_data = (
+        Subset(test_data, range(n_training_points)) if n_training_points else test_data
+    )
+    eval_loader = DataLoader(test_data, batch_size=batch_size)
 
     if mode == "train":
-        data = DialogDiscriminationDataset(root=root, dataset=dataset, split="train")
-        data = Subset(data, range(n_training_points)) if n_training_points else data
-        loader = DataLoader(data, batch_size=batch_size, shuffle=True)
-
         manager.train(
-            epochs=epochs, train_loader=loader, eval_loader=None, save_every_epoch=True
+            epochs=epochs,
+            train_loader=train_loader,
+            eval_loader=eval_loader,
+            save_every_epoch=True,
         )
         manager.save(model_path)
     elif mode == "eval":
-        data = DialogDiscriminationDataset(root=root, dataset=dataset, split="test")
-        data = Subset(data, range(n_training_points)) if n_training_points else data
-        loader = DataLoader(data, batch_size=batch_size)
-
         manager.load(model_path)
-        manager.eval(loader)
+        manager.eval(eval_loader)
 
     log_file.close()
 

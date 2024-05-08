@@ -31,7 +31,7 @@ class MultiDimensionMSELoss(nn.Module):
         if target.dim() == 1 and self.num_classes:
             target = target.view((-1, self.num_classes))
 
-        se = (output[:, :n_dims] - target[:, :n_dims]) ** 2
+        se = torch.abs(output[:, :n_dims] - target[:, :n_dims])
         mse = torch.mean(se, dim=0)
         dim_mse = torch.sum(mse)
 
@@ -52,7 +52,7 @@ class ModelManager(nn.Module):
         self,
         model,
         optimizer,
-        model_base_name,
+        model_base_name="",
         criterion=HingeLoss(),
         device=get_torch_device(),
     ):
@@ -115,9 +115,6 @@ class ModelManager(nn.Module):
             if eval_loader:
                 self.eval(eval_loader)
 
-                if (epoch + 1) % 10 == 0:
-                    self.calc_metrics(eval_loader, "Validation")
-
     def eval(self, loader, loss_window=10):
         self.model.eval()
 
@@ -160,4 +157,4 @@ class ModelManager(nn.Module):
                 [t[i] for t in all_targets], [p[i] for p in all_predictions]
             )
 
-            print(f"\t Dim {i+1}:\tR^2: {r_2:.3f}\tCorr: {corr:.3f}")
+            print(f"\t Dim {i+1}:\tR^2: {r_2:.3f}\tCorr: {corr:.3f} (p={p:.2f})")
