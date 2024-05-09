@@ -37,8 +37,6 @@ def check_memory_usage():
 
     # Backward pass
     optimizer.zero_grad()
-    loss.backward()
-
     scaler.scale(loss).backward()
     scaler.step(optimizer)
     scaler.update()
