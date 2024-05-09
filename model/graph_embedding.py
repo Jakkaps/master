@@ -34,6 +34,7 @@ class GraphEmbedding(nn.Module):
         self.relation_aware_mps = nn.ModuleList(relation_aware_mps)
         self.mps = nn.ModuleList(mps)
         self.lin = nn.Linear(hidden_dim, out_dim)
+        self.do = nn.Dropout(0.5)
 
     def forward(self, x, edge_index, edge_type, batch_size):
         # Embed utterances
@@ -50,6 +51,7 @@ class GraphEmbedding(nn.Module):
                     edge_index,
                 )
             ) + x
+            x = self.do(x)
 
         # Aggregate to graph level
         x = x.view(batch_size, -1, x.size(-1))
