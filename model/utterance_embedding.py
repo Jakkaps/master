@@ -20,7 +20,8 @@ class UtteranceEmbedding(nn.Module):
         model = AutoModel.from_pretrained(
             "sentence-transformers/paraphrase-MiniLM-L6-v2"
         )
-        self.model = get_peft_model(model, peft_config)
+        # self.model = get_peft_model(model, peft_config)
+        self.model = model
         self.bn = nn.BatchNorm1d(embed_dim)
 
     def forward(self, x):
