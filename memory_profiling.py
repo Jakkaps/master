@@ -43,9 +43,6 @@ def check_memory_usage():
     scaler.step(optimizer)
     scaler.update()
 
-    # Optimizer step
-    optimizer.step()
-
     # Retrieve the memory stats
     peak_memory = torch.cuda.max_memory_allocated(device) / (1024**2)  # Convert to MB
     current_memory = torch.cuda.memory_allocated(device) / (1024**2)  # Convert to MB
