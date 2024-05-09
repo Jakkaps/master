@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from torch.cuda.amp import GradScaler, autocast
 from torch_geometric.loader import DataLoader
 
 from dialog_discrimination_dataset import DialogDiscriminationDataset
@@ -22,19 +23,25 @@ loader = DataLoader(dataset, batch_size=1, shuffle=True)
 input_data = next(iter(loader)).to(device)
 target = input_data.y
 
+scaler = GradScaler()
+
 
 # Function to measure memory usage
 def check_memory_usage():
     torch.cuda.empty_cache()
     torch.cuda.reset_peak_memory_stats()
 
-    # Forward pass
-    output = model(input_data)
-    loss = criterion(output, target)
+    with autocast():
+        output = model(input_data)
+        loss = criterion(output, target)
 
     # Backward pass
     optimizer.zero_grad()
     loss.backward()
+
+    scaler.scale(loss).backward()
+    scaler.step(optimizer)
+    scaler.update()
 
     # Optimizer step
     optimizer.step()
