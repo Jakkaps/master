@@ -2,8 +2,10 @@ from statistics import mean
 
 import torch
 import torch.nn as nn
+from pyexpat import model
 from scipy.stats import pearsonr
 from sklearn.metrics import r2_score
+from torch import Tensor
 from tqdm import tqdm
 
 from utils import get_torch_device
@@ -84,6 +86,7 @@ class ModelManager(nn.Module):
         self.model.train()
 
         for epoch in range(epochs):
+            target, pred = [], []
             batch_losses = []
             progress_bar = tqdm(
                 enumerate(train_loader),
@@ -101,6 +104,9 @@ class ModelManager(nn.Module):
                 loss.backward()
                 self.optimizer.step()
 
+                target.extend(batch.y.cpu().detach().numpy())
+                pred.extend(out.cpu().detach().numpy())
+
                 batch_losses.append(loss.item())
 
                 progress_bar.update(1)
@@ -114,20 +120,19 @@ class ModelManager(nn.Module):
             if save_every_epoch:
                 self.save(self.model_base_path + f"_epoch={epoch+1}.pth")
 
+            eval_target, eval_preds = None, None
             if eval_loader:
-                target, preds = self.eval(eval_loader)
+                eval_target, eval_preds = self.eval(eval_loader)
 
-                torch.save(
-                    target,
-                    f"{output_path}/{self.model_name}_targets_epoch={epoch+1}.pt",
-                )
-                torch.save(
-                    preds,
-                    f"{output_path}/{self.model_name}_predictions_epoch={epoch+1}.pt",
-                )
-
-                # if (epoch + 1) % 5 == 0:
-                # self.calc_metrics(eval_loader, "Metric eval")
+            epoch_data = {
+                "train_target": Tensor(target),
+                "train_preds": Tensor(pred),
+                "eval_target": eval_target,
+                "eval_preds": eval_preds,
+            }
+            torch.save(
+                epoch_data, f"{output_path}/{self.model_name}_epoch={epoch + 1}.pt"
+            )
 
     def eval(self, loader, loss_window=10):
         self.model.eval()
@@ -144,8 +149,8 @@ class ModelManager(nn.Module):
                 out = self.model(batch)
                 loss = self.criterion(out, batch.y)
 
-                targets.extend(batch.y.cpu().numpy())
-                preds.extend(out.cpu().numpy())
+                targets.extend(batch.y.cpu().detach().numpy())
+                preds.extend(out.cpu().detach().numpy())
 
                 batch_losses.append(loss.item())
                 progress_bar.set_postfix(
@@ -154,7 +159,7 @@ class ModelManager(nn.Module):
                 )
                 progress_bar.update(1)
 
-        return targets, preds
+        return Tensor(targets), Tensor(preds)
 
     def calc_metrics(self, loader, label):
         self.model.eval()
