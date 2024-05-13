@@ -61,7 +61,8 @@ class ModelManager(nn.Module):
         self.optimizer = optimizer
         self.criterion = criterion
         self.device = device
-        self.model_base_name = model_base_name.split(".")[0]
+        self.model_base_path = model_base_name.split(".")[0]
+        self.model_name = self.model_base_path.split("/")[-1]
 
     def save(self, path):
         torch.save(self.model.state_dict(), path)
@@ -78,6 +79,7 @@ class ModelManager(nn.Module):
         save_every_epoch=False,
         batch_size=None,
         num_classes=None,
+        output_path="./output",
     ):
         self.model.train()
 
@@ -110,13 +112,26 @@ class ModelManager(nn.Module):
             progress_bar.close()
 
             if save_every_epoch:
-                self.save(self.model_base_name + f"_epoch={epoch+1}.pth")
+                self.save(self.model_base_path + f"_epoch={epoch+1}.pth")
 
             if eval_loader:
-                self.eval(eval_loader)
+                target, preds = self.eval(eval_loader)
+
+                torch.save(
+                    target,
+                    f"{output_path}/{self.model_name}_targets_epoch={epoch+1}.pt",
+                )
+                torch.save(
+                    preds,
+                    f"{output_path}/{self.model_name}_predictions_epoch={epoch+1}.pt",
+                )
+
+                # if (epoch + 1) % 5 == 0:
+                # self.calc_metrics(eval_loader, "Metric eval")
 
     def eval(self, loader, loss_window=10):
         self.model.eval()
+        targets, preds = [], []
 
         batch_losses = []
         with torch.no_grad():
@@ -129,12 +144,17 @@ class ModelManager(nn.Module):
                 out = self.model(batch)
                 loss = self.criterion(out, batch.y)
 
+                targets.extend(batch.y.cpu().numpy())
+                preds.extend(out.cpu().numpy())
+
                 batch_losses.append(loss.item())
                 progress_bar.set_postfix(
                     avg=mean(batch_losses),
                     window=mean(batch_losses[-loss_window:]),
                 )
                 progress_bar.update(1)
+
+        return targets, preds
 
     def calc_metrics(self, loader, label):
         self.model.eval()
