@@ -48,7 +48,7 @@ class DialogDiscriminationDataset(InMemoryDataset):
         ]
 
         random.shuffle(data_list)
-        split_idx = int(0.8 * len(data_list))
+        split_idx = int(0.95 * len(data_list))
 
         train_data = data_list[:split_idx]
         test_data = data_list[split_idx:]
