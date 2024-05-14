@@ -29,10 +29,10 @@ class DialogRatingDataset(InMemoryDataset):
         edges = torch.load(f"{self.root}/edges.pt")
         labels = torch.load(f"{self.root}/labels.pt")
 
-        label_mean = labels.mean(dim=0)
-        label_std = labels.std(dim=0)
+        labels_mean = labels.mean(dim=0)
+        labels_std = labels.std(dim=0)
 
-        labels = (labels - label_mean) / label_std
+        labels = (labels - labels_mean) / labels_std
 
         data_list = [
             Data(
@@ -45,7 +45,7 @@ class DialogRatingDataset(InMemoryDataset):
             for i in range(len(nodes))
         ]
 
-        split_idx = int(0.8 * len(data_list))
+        split_idx = int(0.95 * len(data_list))
         train_data, test_data = data_list[:split_idx], data_list[split_idx:]
 
         self.save(train_data, self.processed_paths[0])
