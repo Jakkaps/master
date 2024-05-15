@@ -10,7 +10,7 @@ from dialog_discrimination_dataset import DialogDiscriminationDataset
 from dialog_rating_dataset import DialogRatingDataset
 from model.dialog_discriminator import DialogDiscriminator
 from model.dialog_rater import DialogRater
-from model_manager import ModelManager, MultiDimensionMSELoss
+from model_manager import MDCE, ModelManager, MultiDimensionMSELoss
 from utils import get_file_names, get_torch_device, print_model_parameters
 
 
@@ -31,9 +31,10 @@ def main(
     n_layers: int,
     graph_out_dim: int,
 ):
-    _, model_name = get_file_names(
-        lr, epochs, batch_size, n_training_points, n_layers, graph_out_dim
-    )
+    # _, model_name = get_file_names(
+    # lr, epochs, batch_size, n_training_points, n_layers, graph_out_dim
+    # )
+    model_name = "n_layers=10_graph_out_dim=10_epoch=6.pth"
     dataset = "ratings"
     root = f"data/{dataset}"
     model_path = f"ckpts/{model_name}"
@@ -45,22 +46,41 @@ def main(
         for k, v in state_dict.items()
         if "graph_embed" in k
     }
-    model = DialogRater(n_graph_layers=n_layers, graph_out_dim=graph_out_dim)
+    model = DialogRater(
+        n_graph_layers=n_layers,
+        graph_out_dim=graph_out_dim,
+        n_hidden_layers=2,
+        hidden_dim=128,
+    )
     model.graph_embed.load_state_dict(graph_embed_state_dict)
     model.to(device)
 
-    # Freeze graph_embed parameters
-    for param in model.graph_embed.parameters():
-        param.requires_grad = False
-
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-    manager = ModelManager(model, optimizer, criterion=MultiDimensionMSELoss(4))
+    manager = ModelManager(
+        model, optimizer, criterion=MultiDimensionMSELoss(num_classes=4)
+    )
 
-    data = DialogRatingDataset(root=root, dataset=dataset)
-    data = Subset(data, range(n_training_points)) if n_training_points else data
-    loader = DataLoader(data, batch_size=batch_size)
+    train_data = DialogRatingDataset(root=root, dataset=dataset)
+    train_data = (
+        Subset(train_data, range(n_training_points))
+        if n_training_points
+        else train_data
+    )
+    train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
 
-    manager.train(epochs=epochs, loader=loader, batch_size=batch_size, num_classes=4)
+    eval_data = DialogRatingDataset(root=root, dataset=dataset, split="test")
+    eval_data = (
+        Subset(eval_data, range(n_training_points)) if n_training_points else eval_data
+    )
+    eval_loader = DataLoader(eval_data, batch_size=batch_size)
+
+    manager.train(
+        epochs=epochs,
+        train_loader=train_loader,
+        eval_loader=eval_loader,
+        batch_size=batch_size,
+        num_classes=4,
+    )
 
 
 if __name__ == "__main__":

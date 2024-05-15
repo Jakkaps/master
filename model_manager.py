@@ -124,6 +124,9 @@ class ModelManager(nn.Module):
             if eval_loader:
                 eval_target, eval_preds = self.eval(eval_loader)
 
+            if (epoch + 1) % 5 == 0:
+                self.calc_metrics(eval_loader, "eval")
+
             epoch_data = {
                 "train_target": Tensor(target),
                 "train_preds": Tensor(pred),
