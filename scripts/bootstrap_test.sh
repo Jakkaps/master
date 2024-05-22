@@ -12,4 +12,4 @@
 module load Python/3.9.6-GCCcore-11.2.0
 module load CUDA/11.8.0
 source .venv/bin/activate
-python bootstrap_corr_test.py --epoch=3 --n_iterations=100
+python bootstrap_corr_test.py --epoch=3 --n_iterations=1000
