@@ -2,25 +2,10 @@ from statistics import mean
 
 import torch
 import torch.nn as nn
-from pyexpat import model
-from scipy.stats import pearsonr
-from sklearn.metrics import r2_score
 from torch import Tensor
 from tqdm import tqdm
 
 from utils import get_torch_device
-
-
-class MDCE(nn.Module):
-    def __init__(self, num_classes=None):
-        super(MDCE, self).__init__()
-        self.cross_entropy = nn.CrossEntropyLoss()
-        self.num_classes = num_classes
-
-    def forward(self, output, target):
-        target = target.view(-1, 2).to(torch.float32)
-
-        return self.cross_entropy(output, target)
 
 
 class MultiDimensionMSELoss(nn.Module):
