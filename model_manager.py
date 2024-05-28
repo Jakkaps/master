@@ -124,9 +124,6 @@ class ModelManager(nn.Module):
             if eval_loader:
                 eval_target, eval_preds = self.eval(eval_loader)
 
-            if (epoch + 1) % 5 == 0:
-                self.calc_metrics(eval_loader, "eval")
-
             epoch_data = {
                 "train_target": Tensor(target),
                 "train_preds": Tensor(pred),
@@ -163,26 +160,3 @@ class ModelManager(nn.Module):
                 progress_bar.update(1)
 
         return Tensor(targets), Tensor(preds)
-
-    def calc_metrics(self, loader, label):
-        self.model.eval()
-
-        all_targets = []
-        all_predictions = []
-
-        with torch.no_grad():
-            for batch in loader:
-                batch = batch.to(self.device)
-
-                out = self.model(batch)
-                bsz = batch.num_graphs
-                all_targets.extend(batch.y.view((bsz, -1)).cpu().numpy())
-                all_predictions.extend(out.cpu().numpy())
-
-        for i in range(4):
-            r_2 = r2_score([t[i] for t in all_targets], [p[i] for p in all_predictions])
-            corr, p = pearsonr(
-                [t[i] for t in all_targets], [p[i] for p in all_predictions]
-            )
-
-            print(f"\t Dim {i+1}:\tR^2: {r_2:.3f}\tCorr: {corr:.3f} (p={p:.2f})")

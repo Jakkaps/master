@@ -45,8 +45,4 @@ class DialogRatingDataset(InMemoryDataset):
             for i in range(len(nodes))
         ]
 
-        split_idx = int(0.95 * len(data_list))
-        train_data, test_data = data_list[:split_idx], data_list[split_idx:]
-
-        self.save(train_data, self.processed_paths[0])
-        self.save(test_data, self.processed_paths[1])
+        self.save(data_list, self.processed_paths[0])

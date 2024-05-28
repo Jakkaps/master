@@ -7,7 +7,7 @@
 #SBATCH --gres=gpu
 #SBATCH --mem=32G
 #SBATCH --constraint=gpu16g
-#SBATCH --output=mem_profile.txt
+#SBATCH --output=bootstrap_test.txt
 
 module load Python/3.9.6-GCCcore-11.2.0
 module load CUDA/11.8.0

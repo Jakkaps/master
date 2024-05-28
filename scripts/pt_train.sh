@@ -7,7 +7,7 @@
 #SBATCH --gres=gpu
 #SBATCH --mem=100G
 #SBATCH --constraint=gpu16g
-#SBATCH --output=training.txt
+#SBATCH --output=pre_training.txt
 
 module load Python/3.9.6-GCCcore-11.2.0
 module load CUDA/11.8.0
