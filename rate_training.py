@@ -31,9 +31,9 @@ def main(
     n_layers: int,
     graph_out_dim: int,
 ):
-    # _, model_name = get_file_names(
-    # lr, epochs, batch_size, n_training_points, n_layers, graph_out_dim
-    # )
+    _, model_name = get_file_names(
+        lr, epochs, batch_size, n_training_points, n_layers, graph_out_dim
+    )
     model_name = "n_layers=10_graph_out_dim=10_epoch=6.pth"
     dataset = "ratings"
     root = f"data/{dataset}"

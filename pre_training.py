@@ -42,9 +42,6 @@ def main(
     model = DialogDiscriminator(n_graph_layers=n_layers, graph_out_dim=graph_out_dim)
     model.to(device)
 
-    for param in model.graph_embed.embed.model.parameters():
-        param.requires_grad = False
-
     dataset = "twitter_cs"
     root = f"data/{dataset}"
     model_path = f"ckpts/{model_name}"
